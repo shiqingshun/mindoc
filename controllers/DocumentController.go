@@ -67,6 +67,15 @@ func (c *DocumentController) Index() {
 
 	bookResult := c.isReadable(identify, token)
 
+	// 记录阅读历史
+	if c.Member != nil && c.Member.MemberId > 0 {
+		history := models.NewBookReadHistory()
+		_, err := history.GetOrCreate(c.Member.MemberId, bookResult.BookId)
+		if err != nil {
+			logs.Error("添加阅读历史失败:", err)
+		}
+	}
+
 	c.TplName = "document/" + bookResult.Theme + "_read.tpl"
 
 	selected := 0
@@ -251,7 +260,7 @@ func (c *DocumentController) Read() {
 		data.DocId = doc.DocumentId
 		data.DocIdentify = doc.Identify
 		data.DocTitle = doc.DocumentName
-		data.Body = doc.Release + "<div class='wiki-bottom-left'>"+ i18n.Tr(c.Lang, "doc.prev") + "： <a href='/docs/" + PrevPath + "' rel='prev'>" + PrevName + "</a><br />" + i18n.Tr(c.Lang, "doc.next") + "： <a href='/docs/" + NextPath + "' rel='next'>" + NextName + "</a><br /></div>"
+		data.Body = doc.Release + "<div class='wiki-bottom-left'>" + i18n.Tr(c.Lang, "doc.prev") + "： <a href='/docs/" + PrevPath + "' rel='prev'>" + PrevName + "</a><br />" + i18n.Tr(c.Lang, "doc.next") + "： <a href='/docs/" + NextPath + "' rel='next'>" + NextName + "</a><br /></div>"
 		data.Title = doc.DocumentName + " - Powered by MinDoc"
 		data.Version = doc.Version
 		data.ViewCount = doc.ViewCount
@@ -283,7 +292,7 @@ func (c *DocumentController) Read() {
 	c.Data["Model"] = bookResult
 	c.Data["Result"] = template.HTML(tree)
 	c.Data["Title"] = doc.DocumentName
-	c.Data["Content"] = template.HTML(doc.Release + "<div class='wiki-bottom-left'>"+ i18n.Tr(c.Lang, "doc.prev") + "： <a href='/docs/" + PrevPath + "' rel='prev'>" + PrevName + "</a><br />" + i18n.Tr(c.Lang, "doc.next") + "： <a href='/docs/" + NextPath + "' rel='next'>" + NextName + "</a><br /></div>")
+	c.Data["Content"] = template.HTML(doc.Release + "<div class='wiki-bottom-left'>" + i18n.Tr(c.Lang, "doc.prev") + "： <a href='/docs/" + PrevPath + "' rel='prev'>" + PrevName + "</a><br />" + i18n.Tr(c.Lang, "doc.next") + "： <a href='/docs/" + NextPath + "' rel='next'>" + NextName + "</a><br /></div>")
 	c.Data["ViewCount"] = doc.ViewCount
 	c.Data["FoldSetting"] = "closed"
 	if bookResult.Editor == EditorCherryMarkdown {

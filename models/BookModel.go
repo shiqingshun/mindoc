@@ -522,6 +522,17 @@ func (book *Book) ThoroughDeleteBook(id int) error {
 
 }
 
+// GetBooksByIds 根据图书ID列表获取图书信息
+func (book *Book) GetBooksByIds(ids []int) ([]*Book, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var books []*Book
+	o := orm.NewOrm()
+	_, err := o.QueryTable(book.TableNameWithPrefix()).Filter("book_id__in", ids).All(&books)
+	return books, err
+}
+
 // 分页查找系统首页数据.
 func (book *Book) FindForHomeToPager(pageIndex, pageSize, memberId int) (books []*BookResult, totalCount int, err error) {
 	o := orm.NewOrm()

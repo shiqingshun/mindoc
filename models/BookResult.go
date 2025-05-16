@@ -188,7 +188,7 @@ func (m *BookResult) FindToPager(pageIndex, pageSize int) (books []*BookResult, 
 
 // 实体转换
 func (m *BookResult) ToBookResult(book Book) *BookResult {
-
+	// 基本信息转换
 	m.BookId = book.BookId
 	m.BookName = book.BookName
 	m.Identify = book.Identify
@@ -218,6 +218,17 @@ func (m *BookResult) ToBookResult(book Book) *BookResult {
 	m.ItemId = book.ItemId
 	m.RoleId = conf.BookRoleNoSpecific
 
+	// 获取创建者信息
+	o := orm.NewOrm()
+	var rel Relationship
+	if err := o.QueryTable(NewRelationship().TableNameWithPrefix()).Filter("book_id", book.BookId).Filter("role_id", 0).One(&rel); err == nil {
+		if member, err := NewMember().Find(rel.MemberId); err == nil && member != nil {
+			m.CreateName = member.Account
+			m.RealName = member.RealName // 直接赋值 RealName,不再判断是否为空
+		}
+	}
+
+	// 默认主题和编辑器设置
 	if book.Theme == "" {
 		m.Theme = "default"
 	}
@@ -225,24 +236,23 @@ func (m *BookResult) ToBookResult(book Book) *BookResult {
 		m.Editor = "markdown"
 	}
 
+	// 最后修改信息
 	doc := NewDocument()
-
-	o := orm.NewOrm()
-
-	err := o.QueryTable(doc.TableNameWithPrefix()).Filter("book_id", book.BookId).OrderBy("modify_time").One(doc)
-
-	if err == nil {
+	if err := o.QueryTable(doc.TableNameWithPrefix()).Filter("book_id", book.BookId).OrderBy("modify_time").One(doc); err == nil {
 		member2 := NewMember()
-		member2.Find(doc.ModifyAt)
-
-		m.LastModifyText = member2.Account + " 于 " + doc.ModifyTime.Local().Format("2006-01-02 15:04:05")
+		if member2, err := member2.Find(doc.ModifyAt); err == nil && member2 != nil {
+			m.LastModifyText = member2.Account + " 于 " + doc.ModifyTime.Local().Format("2006-01-02 15:04:05")
+		}
 	}
 
+	// 项目空间信息
 	if m.ItemId > 0 {
 		if item, err := NewItemsets().First(m.ItemId); err == nil {
 			m.ItemName = item.ItemName
 		}
 	}
+
+	// 评论状态设置
 	if m.CommentStatus == "closed" {
 		m.IsDisplayComment = false
 	} else if m.CommentStatus == "open" {
