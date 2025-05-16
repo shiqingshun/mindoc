@@ -5,7 +5,7 @@ export GOARCH=amd64
 export GOOS=linux
 export CC=/usr/bin/gcc
 
-export TRAVIS_TAG=v2.1-beta.6
+export TRAVIS_TAG=v2.3
 
 go mod tidy -v
 go build -v -o mindoc_linux_amd64 -ldflags="-linkmode external -extldflags '-static' -w -X 'github.com/mindoc-org/mindoc/conf.VERSION=$TRAVIS_TAG' -X 'github.com/mindoc-org/mindoc/conf.BUILD_TIME=`date`' -X 'github.com/mindoc-org/mindoc/conf.GO_VERSION=`go version`'"
