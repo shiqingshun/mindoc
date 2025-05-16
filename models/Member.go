@@ -170,7 +170,7 @@ func (m *Member) ldapLogin(account string, password string) (*Member, error) {
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
 		// 修改objectClass通过配置文件获取值
 		fmt.Sprintf("(&(%s)(%s=%s))", ldapfilter, ldapattr, account),
-		[]string{"dn", "mail", "cn", "ou", "sAMAccountName"},
+		[]string{"dn", "mail", "cn", "ou", ldapaccount},
 		nil,
 	)
 	searchResult, err := lc.Search(searchRequest)
