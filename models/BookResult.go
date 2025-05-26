@@ -218,6 +218,13 @@ func (m *BookResult) ToBookResult(book Book) *BookResult {
 	m.ItemId = book.ItemId
 	m.RoleId = conf.BookRoleNoSpecific
 
+	// 获取项目空间信息
+	if book.ItemId > 0 {
+		if itemset, err := NewItemsets().First(book.ItemId); err == nil {
+			m.ItemName = itemset.ItemName
+		}
+	}
+
 	// 获取创建者信息
 	o := orm.NewOrm()
 	var rel Relationship
