@@ -261,9 +261,12 @@ func init() {
 	web.Router("/comment/index", &controllers.CommentController{}, "*:Index")
 
 	web.Router("/search", &controllers.SearchController{}, "get:Index")
-
 	web.Router("/tag/:key", &controllers.LabelController{}, "get:Index")
 	web.Router("/tags", &controllers.LabelController{}, "get:List")
+	web.Router("/api/labels/search", &controllers.LabelController{}, "get:SearchLabels")
+
+	web.Router("/manager/labels", &controllers.ManagerController{}, "get:LabelList")
+	web.Router("/manager/labels/delete/:id", &controllers.ManagerController{}, "post:LabelDelete")
 
 	web.Router("/items", &controllers.ItemsetsController{}, "get:Index")
 	web.Router("/items/:key", &controllers.ItemsetsController{}, "get:List")

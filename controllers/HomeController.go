@@ -34,6 +34,41 @@ func (c *HomeController) Index() {
 	if c.Member != nil {
 		memberId = c.Member.MemberId
 	}
+
+	// 标签视图模式 - 是否按标签分组显示
+	byLabel := c.GetString("by_label")
+
+	// 如果按标签展示
+	if byLabel == "true" {
+		c.TplName = "home/index_by_label.tpl"
+
+		// 获取所有标签
+		labels, _, err := models.NewLabel().FindToPager(1, 100)
+		if err != nil {
+			logs.Error(err)
+			c.Abort("500")
+		}
+
+		// 标签与书籍映射
+		labelBooks := make(map[string][]*models.BookResult)
+
+		// 为每个标签获取书籍
+		for _, label := range labels {
+			if label.BookNumber > 0 {
+				books, _, err := models.NewBookLabel().GetLabelBooks(label.LabelId, 1, 6, memberId)
+				if err != nil {
+					logs.Error("获取标签书籍失败:", err)
+					continue
+				}
+				labelBooks[label.LabelName] = books
+			}
+		}
+
+		c.Data["Labels"] = labels
+		c.Data["LabelBooks"] = labelBooks
+		return
+	}
+
 	// 获取用户的浏览历史
 	var historyBooks []*models.BookResult
 	if memberId > 0 {

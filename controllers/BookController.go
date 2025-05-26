@@ -119,6 +119,27 @@ func (c *BookController) Setting() {
 	if book.RoleId != conf.BookFounder && book.RoleId != conf.BookAdmin {
 		c.Abort("403")
 	}
+	// 获取书籍相关的标签
+	labels, err := models.NewBookLabel().GetBookLabels(book.BookId)
+	if err != nil {
+		logs.Error("获取书籍标签失败 ->", err)
+	} else {
+		logs.Info("成功获取书籍标签: ", len(labels), "个")
+		for _, label := range labels {
+			logs.Info("书籍标签: ID=", label.LabelId, " 名称=", label.LabelName)
+		}
+	}
+	book.Labels = labels
+
+	// 获取标签的ID列表
+	labelIds, err := models.NewBookLabel().GetBookLabelIds(book.BookId)
+	if err != nil {
+		logs.Error("获取书籍标签ID列表失败 ->", err)
+	} else {
+		logs.Info("成功获取书籍标签ID列表: ", labelIds)
+	}
+	book.LabelIds = labelIds
+
 	if book.PrivateToken != "" {
 		book.PrivateToken = conf.URLFor("DocumentController.Index", ":key", book.Identify, "token", book.PrivateToken)
 	}
@@ -129,6 +150,12 @@ func (c *BookController) Setting() {
 
 // 保存项目信息
 func (c *BookController) SaveBook() {
+	// 添加调试信息，输出所有请求参数
+	logs.Info("SaveBook - 请求参数：")
+	for k, v := range c.Ctx.Request.Form {
+		logs.Info("参数[%s] = %v", k, v)
+	}
+
 	bookResult, err := c.IsPermission()
 
 	if err != nil {
@@ -165,17 +192,61 @@ func (c *BookController) SaveBook() {
 
 	if !models.NewItemsets().Exist(itemId) {
 		c.JsonResult(6006, i18n.Tr(c.Lang, "message.project_space_not_exist"))
-	}
-	// if editor != EditorMarkdown && editor != EditorCherryMarkdown && editor != EditorHtml && editor != EditorNewHtml {
+	} // if editor != EditorMarkdown && editor != EditorCherryMarkdown && editor != EditorHtml && editor != EditorNewHtml {
 	if editor != EditorMarkdown && editor != EditorCherryMarkdown && editor != EditorHtml && editor != EditorNewHtml && editor != EditorFroala {
 		editor = EditorMarkdown
 	}
-
 	book.BookName = bookName
 	book.Description = description
 	book.CommentStatus = commentStatus
-	book.Publisher = publisher
-	//book.Label = tag
+	book.Publisher = publisher // 处理书籍标签
+	var labelIds []int
+
+	// 取得选中的标签数据 - 使用GetStrings获取多选值
+	labelValues := c.GetStrings("labels[]")
+	if len(labelValues) == 0 {
+		// 尝试使用不带[]的名称获取
+		labelValues = c.GetStrings("labels")
+	}
+
+	logs.Info("接收到的标签数据(GetStrings): ", labelValues)
+
+	// 如果GetStrings没有获取到数据，尝试使用GetString
+	if len(labelValues) == 0 {
+		labelsStr := c.GetString("labels")
+		logs.Info("接收到的标签数据(GetString): ", labelsStr)
+		if labelsStr != "" {
+			labelValues = strings.Split(labelsStr, ",")
+		}
+	}
+
+	// 处理所有标签值
+	for _, item := range labelValues {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+
+		logs.Info("处理标签项: ", item)
+		// 如果是数字（ID），直接添加
+		if id, err := strconv.Atoi(item); err == nil && id > 0 {
+			logs.Info("添加已有标签ID: ", id)
+			labelIds = append(labelIds, id)
+		} else {
+			// 如果是标签名，先创建标签，再获取ID
+			label := models.NewLabel()
+			err := label.InsertOrUpdate(item)
+			if err == nil {
+				logs.Info("创建新标签并添加ID: ", label.LabelId, "名称: ", label.LabelName)
+				labelIds = append(labelIds, label.LabelId)
+			} else {
+				logs.Error("保存标签失败:", err)
+			}
+		}
+	}
+
+	logs.Info("最终标签ID列表: ", labelIds)
+
 	if book.Editor == EditorMarkdown && editor == EditorCherryMarkdown || book.Editor == EditorCherryMarkdown && editor == EditorMarkdown {
 		c.JsonResult(6006, i18n.Tr(c.Lang, "message.editors_not_compatible"))
 	}
@@ -218,9 +289,19 @@ func (c *BookController) SaveBook() {
 	} else {
 		book.PrintSate = 0
 	}
+
 	if err := book.Update(); err != nil {
 		c.JsonResult(6006, i18n.Tr(c.Lang, "message.failed"))
 	}
+	// 更新书籍与标签的关联关系
+	logs.Info("开始更新书籍标签关系，书籍ID: ", book.BookId, "标签ID列表: ", labelIds)
+	if err := models.NewBookLabel().UpdateBookLabels(book.BookId, labelIds); err != nil {
+		logs.Error("更新书籍标签关系失败 ->", err)
+		// 不影响整体保存操作，只记录错误
+	} else {
+		logs.Info("更新书籍标签关系成功")
+	}
+
 	bookResult.BookName = bookName
 	bookResult.Description = description
 	bookResult.CommentStatus = commentStatus

@@ -20,10 +20,14 @@
 </head>
 <body>
 <div class="manual-reader manual-container">
-    {{template "widgets/header.tpl" .}}
-    <div class="container manual-body">
+    {{template "widgets/header.tpl" .}}    <div class="container manual-body">
         <div class="row">
              <div class="manual-list">
+                <div style="text-align: right;margin-bottom: 15px;">
+                    <span>查看方式：</span>
+                    <a href="{{urlfor "HomeController.Index"}}" class="active">全部</a>
+                    <a href="?by_label=true">按标签</a>
+                </div>
                 {{range $index,$item := .Lists}}
                     <div class="list-item" data-id="{{$item.BookId}}">
                         <dl class="manual-item-standard">
@@ -42,6 +46,14 @@
                                 <b class="text">{{if eq $item.RealName "" }}{{$item.CreateName}}{{else}}{{$item.RealName}}{{end}}</b>
                             </span>
                             </dd>
+                            {{if $item.Labels}}
+                            <dd class="book-tags">
+                                <span>标签：</span>
+                                {{range $i, $label := $item.Labels}}
+                                <a href="{{urlfor "LabelController.Index" ":key" $label.LabelName}}" class="tag">{{$label.LabelName}}</a>
+                                {{end}}
+                            </dd>
+                            {{end}}
                         </dl>
                     </div>
                 {{else}}

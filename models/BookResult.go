@@ -54,6 +54,8 @@ type BookResult struct {
 	Cover          string    `json:"cover"`
 	Theme          string    `json:"theme"`
 	Label          string    `json:"label"`
+	Labels         []*Label  `orm:"-" json:"labels"`    // 标签列表
+	LabelIds       []int     `orm:"-" json:"label_ids"` // 标签ID列表
 	MemberId       int       `json:"member_id"`
 	Editor         string    `json:"editor"`
 	AutoRelease    bool      `json:"auto_release"`

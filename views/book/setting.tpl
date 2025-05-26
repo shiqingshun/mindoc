@@ -76,11 +76,18 @@
                                 <label>{{i18n $.Lang "blog.corp_id"}}</label>
                                 <input type="text" class="form-control" name="publisher" value="{{.Model.Publisher}}" placeholder="{{i18n $.Lang "blog.corp_id"}}">
                                 <p class="text">{{i18n $.Lang "message.corp_id_desc"}}</p>
-                            </div>
-                            <div class="form-group">
+                            </div>                            <div class="form-group">
                                 <label>{{i18n $.Lang "blog.project_desc"}}</label>
                                 <textarea rows="3" class="form-control" name="description" style="height: 90px" placeholder="{{i18n $.Lang "blog.project_desc"}}">{{.Model.Description}}</textarea>
                                 <p class="text">{{i18n $.Lang "message.project_desc_desc"}}</p>
+                            </div>                            <div class="form-group">
+                                <label>标签管理</label>
+                                <select name="labels" id="labels" class="form-control" multiple="multiple">
+                                    {{range $index,$item := .Model.Labels}}
+                                    <option value="{{$item.LabelId}}" selected="selected">{{$item.LabelName}}</option>
+                                    {{end}}
+                                </select>
+                                <p class="text">可以添加多个标签，便于分类管理。输入新标签名称后按回车添加。</p>
                             </div>
                             <div class="form-group">
                                 <label>{{i18n $.Lang "blog.text_editor"}}</label>
@@ -553,6 +560,69 @@
         }catch(e){
             console.log(e);
         }
+          // 初始化标签选择器        
+          $("#labels").select2({
+            tags: true,
+            language: "{{i18n $.Lang "common.js_lang"}}",
+            placeholder: "输入标签名称...",
+            allowClear: true,
+            minimumInputLength: 1,
+            ajax: {
+                url: '{{urlfor "LabelController.SearchLabels"}}',
+                dataType: 'json',
+                delay: 300,
+                data: function (params) {
+                    return {
+                        keyword: params.term
+                    };
+                },
+                processResults: function (data) {
+                    return {
+                        results: $.map(data.data || [], function (item) {
+                            return {
+                                id: item.label_id,
+                                text: item.label_name
+                            }
+                        })
+                    };
+                },
+                cache: true
+            },
+            createTag: function (params) {
+                return {
+                    id: params.term,
+                    text: params.term,
+                    newTag: true
+                }
+            },
+            templateResult: function (label) {
+                if (label.loading) {
+                    return label.text;
+                }
+                return $('<span>' + label.text + '</span>');
+            }
+        });
+          // 表单提交前添加额外处理，确保标签数据正确传递
+        $("#bookEditForm").on("submit", function() {
+            console.log("表单提交前处理标签数据");
+            var selectedLabels = $("#labels").val();
+            console.log("已选择的标签：", selectedLabels);
+            
+            // 清除原有的标签隐藏字段
+            $("#bookEditForm").find("input[name='labels']").not("#labels").remove();
+            
+            // 如果使用的是select2多选框，我们需要确保数据能正确提交
+            if (selectedLabels && selectedLabels.length > 0) {
+                // 添加一个隐藏字段确保数据能正确传递
+                $("<input>").attr({
+                    type: "hidden",
+                    name: "labels",
+                    value: selectedLabels.join(",")
+                }).appendTo("#bookEditForm");
+                
+                console.log("处理后的标签数据已添加到表单");
+            }
+        });
     });
 </script>
 </body>

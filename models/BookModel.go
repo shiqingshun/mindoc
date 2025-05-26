@@ -180,9 +180,13 @@ func (book *Book) Update(cols ...string) error {
 		return err
 	}
 
+	// 同步更新标签，注意处理可能的错误
 	if book.Label != "" || temp.Label != "" {
-
-		go NewLabel().InsertOrUpdateMulti(book.Label + "," + temp.Label)
+		err := NewLabel().InsertOrUpdateMulti(book.Label + "," + temp.Label)
+		if err != nil {
+			logs.Error("更新项目标签失败 ->", err)
+			// 这里选择不阻止整个更新流程，只记录错误
+		}
 	}
 
 	_, err := o.Update(book, cols...)

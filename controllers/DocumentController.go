@@ -68,8 +68,10 @@ func (c *DocumentController) Index() {
 	bookResult := c.isReadable(identify, token)
 
 	// 记录阅读历史
+	//logs.Info("记录阅读历史 -> ", bookResult.BookId, bookResult.BookName)
 	if c.Member != nil && c.Member.MemberId > 0 {
 		history := models.NewBookReadHistory()
+		//logs.Info("添加阅读历史 -> ", c.Member.MemberId, bookResult.BookId)
 		_, err := history.GetOrCreate(c.Member.MemberId, bookResult.BookId)
 		if err != nil {
 			logs.Error("添加阅读历史失败:", err)

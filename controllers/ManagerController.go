@@ -739,44 +739,51 @@ func (c *ManagerController) LabelList() {
 	c.Prepare()
 	c.TplName = "manager/label_list.tpl"
 	c.Data["Action"] = "label"
+
 	pageIndex, _ := c.GetInt("page", 1)
 
 	labels, totalCount, err := models.NewLabel().FindToPager(pageIndex, conf.PageSize)
 	if err != nil {
-		c.ShowErrorPage(50001, err.Error())
+		c.Data["ErrorMessage"] = err.Error()
+		return
 	}
+
 	if totalCount > 0 {
 		pager := pagination.NewPagination(c.Ctx.Request, totalCount, conf.PageSize, c.BaseUrl())
 		c.Data["PageHtml"] = pager.HtmlPages()
 	} else {
 		c.Data["PageHtml"] = ""
 	}
-	c.Data["TotalPages"] = int(math.Ceil(float64(totalCount) / float64(conf.PageSize)))
 
 	c.Data["Lists"] = labels
+	c.Data["TotalPages"] = int(math.Ceil(float64(totalCount) / float64(conf.PageSize)))
 }
 
 // 删除标签
 func (c *ManagerController) LabelDelete() {
-	labelId, err := strconv.Atoi(c.Ctx.Input.Param(":id"))
-	if err != nil {
-		logs.Error("获取删除标签参数时出错:", err)
-		c.JsonResult(50001, i18n.Tr(c.Lang, "message.param_error"))
-	}
+	c.Prepare()
+	labelId, _ := strconv.Atoi(c.Ctx.Input.Param(":id"))
+
 	if labelId <= 0 {
-		c.JsonResult(50001, i18n.Tr(c.Lang, "message.param_error"))
+		c.JsonResult(500, "参数错误")
 	}
 
 	label, err := models.NewLabel().FindFirst("label_id", labelId)
 	if err != nil {
-		logs.Error("查询标签时出错:", err)
-		c.JsonResult(50001, "查询标签时出错:"+err.Error())
+		if err == orm.ErrNoRows {
+			c.JsonResult(404, "标签不存在")
+		}
+		logs.Error("删除标签失败:", err)
+		c.JsonResult(500, "系统错误")
 	}
-	if err := label.Delete(); err != nil {
-		c.JsonResult(50002, "删除失败:"+err.Error())
-	} else {
-		c.JsonResult(0, "ok")
+
+	err = label.Delete()
+	if err != nil {
+		logs.Error("删除标签失败:", err)
+		c.JsonResult(500, "删除失败")
 	}
+
+	c.JsonResult(0, "删除成功")
 }
 
 func (c *ManagerController) Config() {

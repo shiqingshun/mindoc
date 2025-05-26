@@ -24,7 +24,7 @@ func (c *LabelController) Prepare() {
 	}
 }
 
-//查看包含标签的文档列表.
+// 查看包含标签的文档列表.
 func (c *LabelController) Index() {
 	c.Prepare()
 	c.TplName = "label/index.tpl"
@@ -34,8 +34,8 @@ func (c *LabelController) Index() {
 	if labelName == "" {
 		c.Abort("404")
 	}
-	_, err := models.NewLabel().FindFirst("label_name", labelName)
 
+	label, err := models.NewLabel().FindFirst("label_name", labelName)
 	if err != nil {
 		if err == orm.ErrNoRows {
 			c.Abort("404")
@@ -44,16 +44,20 @@ func (c *LabelController) Index() {
 			c.Abort("500")
 		}
 	}
+
 	memberId := 0
 	if c.Member != nil {
 		memberId = c.Member.MemberId
 	}
-	searchResult, totalCount, err := models.NewBook().FindForLabelToPager(labelName, pageIndex, conf.PageSize, memberId)
+
+	// 使用新的方法查询标签下的书籍
+	searchResult, totalCount, err := models.NewBookLabel().GetLabelBooks(label.LabelId, pageIndex, conf.PageSize, memberId)
 
 	if err != nil && err != orm.ErrNoRows {
 		logs.Error("查询标签时出错 ->", err)
 		c.ShowErrorPage(500, "查询文档列表时出错")
 	}
+
 	if totalCount > 0 {
 		pager := pagination.NewPagination(c.Ctx.Request, totalCount, conf.PageSize, c.BaseUrl())
 		c.Data["PageHtml"] = pager.HtmlPages()
@@ -86,4 +90,34 @@ func (c *LabelController) List() {
 	c.Data["TotalPages"] = int(math.Ceil(float64(totalCount) / float64(pageSize)))
 
 	c.Data["Labels"] = labels
+}
+
+// SearchLabels 搜索标签
+func (c *LabelController) SearchLabels() {
+	c.Prepare()
+
+	keyword := c.GetString("keyword")
+
+	if keyword == "" {
+		c.JsonResult(0, "成功", []interface{}{})
+		return
+	}
+
+	labels, err := models.NewLabel().FindByName(keyword)
+	if err != nil {
+		logs.Error("搜索标签失败 ->", err)
+		c.JsonResult(500, "搜索标签失败", []interface{}{})
+		return
+	}
+
+	data := []map[string]interface{}{}
+
+	for _, label := range labels {
+		item := make(map[string]interface{})
+		item["label_id"] = label.LabelId
+		item["label_name"] = label.LabelName
+		data = append(data, item)
+	}
+
+	c.JsonResult(0, "成功", data)
 }
