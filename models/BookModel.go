@@ -181,7 +181,6 @@ func (book *Book) Update(cols ...string) error {
 	}
 
 	if book.Label != "" || temp.Label != "" {
-
 		go NewLabel().InsertOrUpdateMulti(book.Label + "," + temp.Label)
 	}
 
@@ -1088,4 +1087,10 @@ where mtr.book_id = ? and mtm.member_id = ? order by mtm.role_id asc limit 1;`
 		return 0, err
 	}
 	return conf.BookRole(roleId), nil
+}
+
+// 获取Book关联的所有项目空间ID
+func (book *Book) GetItemIds() ([]int, error) {
+	rel := NewBookItemRelationship()
+	return rel.GetItemIdsByBookId(book.BookId)
 }

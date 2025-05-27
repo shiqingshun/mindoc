@@ -49,9 +49,13 @@
                                 <input type="text" class="form-control" value="{{urlfor "DocumentController.Index" ":key" .Model.Identify}}" disabled placeholder="{{i18n .Lang "blog.project_id"}}">
                             </div>
                             <div class="form-group">
-                                <label>{{i18n .Lang "common.project_space"}}</label>
-                                <select class="js-data-example-ajax form-control" multiple="multiple" name="itemId">
+                                <label>{{i18n .Lang "common.project_space"}}</label>                                <select class="js-data-example-ajax form-control" multiple="multiple" name="itemId">
                                     <option value="{{.Model.ItemId}}" selected="selected">{{.Model.ItemName}}</option>
+                                    {{range $itemId, $itemName := $.ItemNames}}
+                                        {{if ne $itemId $.Model.ItemId}}
+                                        <option value="{{$itemId}}" selected="selected">{{$itemName}}</option>
+                                        {{end}}
+                                    {{end}}
                                 </select>
                             </div>
                             <div class="form-group">
@@ -352,12 +356,11 @@
                 showError("{{i18n $.Lang "message.system_error"}}","#form-error-message1");
                 $("#btnChangePrivatelyOwned").button("reset");
             }
-        });
-        $('.js-data-example-ajax').select2({
+        });        $('.js-data-example-ajax').select2({
             language: "{{i18n $.Lang "common.js_lang"}}",
             minimumInputLength : 1,
             minimumResultsForSearch: Infinity,
-            maximumSelectionLength:1,
+            //maximumSelectionLength:1, // 移除限制，允许多选
             width : "100%",
             ajax: {
                 url: '{{urlfor "BookController.ItemsetsSearch"}}',

@@ -123,6 +123,19 @@ func (c *BookController) Setting() {
 		book.PrivateToken = conf.URLFor("DocumentController.Index", ":key", book.Identify, "token", book.PrivateToken)
 	}
 
+	// 获取关联的所有项目空间ID
+	foundBook, _ := models.NewBook().Find(book.BookId)
+	itemIds, _ := foundBook.GetItemIds()
+
+	// 获取项目空间名称
+	itemNames := make(map[int]string)
+	if len(itemIds) > 0 {
+		rel := models.NewBookItemRelationship()
+		itemNames, _ = rel.GetItemNamesByBookId(book.BookId)
+	}
+
+	c.Data["ItemIds"] = itemIds
+	c.Data["ItemNames"] = itemNames
 	c.Data["Model"] = book
 
 }
@@ -153,7 +166,7 @@ func (c *BookController) SaveBook() {
 	enableShare := strings.TrimSpace(c.GetString("enable_share")) == "on"
 	isUseFirstDocument := strings.TrimSpace(c.GetString("is_use_first_document")) == "on"
 	autoSave := strings.TrimSpace(c.GetString("auto_save")) == "on"
-	itemId, _ := c.GetInt("itemId")
+	itemIds := c.GetStrings("itemId")
 	pringState := strings.TrimSpace(c.GetString("print_state")) == "on"
 
 	if strings.Count(description, "") > 500 {
@@ -163,9 +176,25 @@ func (c *BookController) SaveBook() {
 		commentStatus = "closed"
 	}
 
-	if !models.NewItemsets().Exist(itemId) {
+	// 检查项目空间是否存在
+	var itemIdsInt []int
+	if len(itemIds) > 0 {
+		for _, itemIdStr := range itemIds {
+			itemId, _ := strconv.Atoi(itemIdStr)
+			if itemId > 0 && models.NewItemsets().Exist(itemId) {
+				itemIdsInt = append(itemIdsInt, itemId)
+			}
+		}
+	}
+
+	// 如果没有选择项目空间或者选择的项目空间不存在，则提示错误
+	if len(itemIdsInt) == 0 {
 		c.JsonResult(6006, i18n.Tr(c.Lang, "message.project_space_not_exist"))
 	}
+
+	// 选择第一个项目空间作为主项目空间(兼容旧版本)
+	firstItemId := itemIdsInt[0]
+
 	// if editor != EditorMarkdown && editor != EditorCherryMarkdown && editor != EditorHtml && editor != EditorNewHtml {
 	if editor != EditorMarkdown && editor != EditorCherryMarkdown && editor != EditorHtml && editor != EditorNewHtml && editor != EditorFroala {
 		editor = EditorMarkdown
@@ -186,7 +215,7 @@ func (c *BookController) SaveBook() {
 	book.HistoryCount = historyCount
 	book.IsDownload = 0
 	book.BookPassword = strings.TrimSpace(c.GetString("bPassword"))
-	book.ItemId = itemId
+	book.ItemId = firstItemId // 兼容旧版本，设置第一个项目空间为主项目空间
 
 	if autoRelease {
 		book.AutoRelease = 1
@@ -203,11 +232,13 @@ func (c *BookController) SaveBook() {
 	} else {
 		book.IsEnableShare = 1
 	}
+
 	if isUseFirstDocument {
 		book.IsUseFirstDocument = 1
 	} else {
 		book.IsUseFirstDocument = 0
 	}
+
 	if autoSave {
 		book.AutoSave = 1
 	} else {
@@ -218,16 +249,22 @@ func (c *BookController) SaveBook() {
 	} else {
 		book.PrintSate = 0
 	}
+
+	book.Version = time.Now().Unix()
+
 	if err := book.Update(); err != nil {
-		c.JsonResult(6006, i18n.Tr(c.Lang, "message.failed"))
+		logs.Error("SaveBook => ", err)
+		c.JsonResult(6003, err.Error())
 	}
-	bookResult.BookName = bookName
-	bookResult.Description = description
-	bookResult.CommentStatus = commentStatus
 
-	logs.Info("用户 [", c.Member.Account, "] 修改了项目 ->", book)
+	// 更新项目空间关系
+	rel := models.NewBookItemRelationship()
+	if err := rel.UpdateByBookId(book.BookId, itemIdsInt); err != nil {
+		logs.Error("UpdateByBookId => ", err)
+		c.JsonResult(6005, err.Error())
+	}
 
-	c.JsonResult(0, "ok", bookResult)
+	c.JsonResult(0, "ok")
 }
 
 // 设置项目私有状态.

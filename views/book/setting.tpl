@@ -62,9 +62,13 @@
                                 <p class="text">{{i18n $.Lang "message.project_id_desc"}}</p>
                             </div>
                             <div class="form-group">
-                                <label>{{i18n $.Lang "common.project_space"}}</label>
-                                <select class="js-data-example-ajax form-control" multiple="multiple" name="itemId">
+                                <label>{{i18n $.Lang "common.project_space"}}</label>                                <select class="js-data-example-ajax form-control" multiple="multiple" name="itemId">
                                     <option value="{{.Model.ItemId}}" selected="selected">{{.Model.ItemName}}</option>
+                                    {{range $itemId, $itemName := $.ItemNames}}
+                                        {{if ne $itemId $.Model.ItemId}}
+                                        <option value="{{$itemId}}" selected="selected">{{$itemName}}</option>
+                                        {{end}}
+                                    {{end}}
                                 </select>
                             </div>
                             <div class="form-group">
@@ -458,12 +462,11 @@
             error : function () {
                 $("#btnTransferBook").button("reset");
             }
-        });
-        $('.js-data-example-ajax').select2({
+        });        $('.js-data-example-ajax').select2({
             language: "{{i18n $.Lang "common.js_lang"}}",
             minimumInputLength : 1,
             minimumResultsForSearch: Infinity,
-            maximumSelectionLength:1,
+            //maximumSelectionLength:1, // 移除限制，允许多选
             width : "100%",
             ajax: {
                 url: '{{urlfor "BookController.ItemsetsSearch"}}',

@@ -2,7 +2,8 @@
 .panel-default {
     margin-bottom: 30px;
     border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 0px solid transparent;
+    /* box-shadow: 0 1px 3px rgba(0,0,0,0.1); */
 }
 
 /* 历史记录面板样式 */
@@ -43,7 +44,7 @@
 }
 
 .panel-default .panel-body {
-    padding: 15px;
+    padding: 5px;
     background-color: #fff;
 }
 

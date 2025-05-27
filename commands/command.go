@@ -121,6 +121,7 @@ func RegisterModel() {
 		new(models.Member),
 		new(models.Book),
 		new(models.BookReadHistory),
+		new(models.BookItemRelationship),
 		new(models.Relationship),
 		new(models.Option),
 		new(models.Document),

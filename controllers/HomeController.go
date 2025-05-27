@@ -4,8 +4,10 @@ import (
 	"math"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/beego/beego/v2/client/orm"
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/mindoc-org/mindoc/conf"
 	"github.com/mindoc-org/mindoc/models"
@@ -88,15 +90,59 @@ func (c *HomeController) Index() {
 	groupedOrder := make([]int, 0)
 	groupedBooks[0] = make([]*models.BookResult, 0) // 未分组
 
+	// 获取所有书籍ID与项目空间的多对多关系
+	bookItemRel := models.NewBookItemRelationship()
+	bookItemMap := make(map[int][]int) // bookId => []itemId
+
+	// 收集所有书籍ID
+	var allBookIds []int
+	for _, book := range books {
+		allBookIds = append(allBookIds, book.BookId)
+	}
+
+	// 批量查询每本书关联的所有项目空间
+	if len(allBookIds) > 0 {
+		o := orm.NewOrm()
+		var relations []struct {
+			BookId int
+			ItemId int
+		}
+
+		// 将 int 切片转换为 interface{} 切片，以便传递给 Raw 方法
+		args := make([]interface{}, len(allBookIds))
+		for i, v := range allBookIds {
+			args[i] = v
+		}
+
+		_, err = o.Raw("SELECT book_id, item_id FROM "+bookItemRel.TableNameWithPrefix()+" WHERE book_id IN (?"+strings.Repeat(",?", len(allBookIds)-1)+")", args...).QueryRows(&relations)
+
+		if err == nil {
+			for _, rel := range relations {
+				if _, ok := bookItemMap[rel.BookId]; !ok {
+					bookItemMap[rel.BookId] = make([]int, 0)
+				}
+				bookItemMap[rel.BookId] = append(bookItemMap[rel.BookId], rel.ItemId)
+			}
+		}
+	}
+
 	// 统计所有书籍分组
 	for _, book := range books {
-		if book.ItemId > 0 {
-			if _, ok := groupedBooks[book.ItemId]; !ok {
-				groupedBooks[book.ItemId] = make([]*models.BookResult, 0)
-			}
-			groupedBooks[book.ItemId] = append(groupedBooks[book.ItemId], book)
-		} else {
+		itemIds := bookItemMap[book.BookId]
+
+		// 如果没有关联任何项目空间，则放入未分组
+		if len(itemIds) == 0 {
 			groupedBooks[0] = append(groupedBooks[0], book)
+			continue
+		}
+
+		// 将书籍添加到每个关联的项目空间分组中
+		for _, itemId := range itemIds {
+			if _, ok := groupedBooks[itemId]; !ok {
+				groupedBooks[itemId] = make([]*models.BookResult, 0)
+			}
+			bookCopy := *book // 创建副本，避免多个分组引用相同对象可能导致的问题
+			groupedBooks[itemId] = append(groupedBooks[itemId], &bookCopy)
 		}
 	}
 
@@ -104,9 +150,12 @@ func (c *HomeController) Index() {
 	historyItemIdSet := make(map[int]bool)
 	historyItemOrder := make([]int, 0)
 	for _, book := range historyBooks {
-		if book.ItemId > 0 && !historyItemIdSet[book.ItemId] {
-			historyItemIdSet[book.ItemId] = true
-			historyItemOrder = append(historyItemOrder, book.ItemId)
+		itemIds := bookItemMap[book.BookId]
+		for _, itemId := range itemIds {
+			if itemId > 0 && !historyItemIdSet[itemId] {
+				historyItemIdSet[itemId] = true
+				historyItemOrder = append(historyItemOrder, itemId)
+			}
 		}
 	}
 

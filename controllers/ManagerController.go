@@ -341,7 +341,7 @@ func (c *ManagerController) EditBook() {
 		autoRelease := strings.TrimSpace(c.GetString("auto_release")) == "on"
 		publisher := strings.TrimSpace(c.GetString("publisher"))
 		historyCount, _ := c.GetInt("history_count", 0)
-		itemId, _ := c.GetInt("itemId")
+		itemIds := c.GetStrings("itemId")
 
 		if strings.Count(description, "") > 500 {
 			c.JsonResult(6004, i18n.Tr(c.Lang, "message.project_desc_tips"))
@@ -355,9 +355,23 @@ func (c *ManagerController) EditBook() {
 				c.JsonResult(6005, "最多允许添加10个标签")
 			}
 		}
-		if !models.NewItemsets().Exist(itemId) {
+
+		// 检查项目空间是否存在
+		var itemIdsInt []int
+		if len(itemIds) > 0 {
+			for _, itemIdStr := range itemIds {
+				itemId, _ := strconv.Atoi(itemIdStr)
+				if itemId > 0 && models.NewItemsets().Exist(itemId) {
+					itemIdsInt = append(itemIdsInt, itemId)
+				}
+			}
+		}
+
+		// 如果没有选择项目空间或者选择的项目空间不存在，则提示错误
+		if len(itemIdsInt) == 0 {
 			c.JsonResult(6006, i18n.Tr(c.Lang, "message.project_space_not_exist"))
 		}
+
 		book.Publisher = publisher
 		book.HistoryCount = historyCount
 		book.BookName = bookName
@@ -365,7 +379,7 @@ func (c *ManagerController) EditBook() {
 		book.CommentStatus = commentStatus
 		book.Label = tag
 		book.OrderIndex = orderIndex
-		book.ItemId = itemId
+		book.ItemId = itemIdsInt[0] // 使用第一个项目空间ID作为主项目空间ID(兼容旧版本)
 		book.BookPassword = strings.TrimSpace(c.GetString("bPassword"))
 
 		if autoRelease {
@@ -392,14 +406,35 @@ func (c *ManagerController) EditBook() {
 		if err := book.Update(); err != nil {
 			c.JsonResult(6006, i18n.Tr(c.Lang, "message.failed"))
 		}
+
+		// 更新项目空间关系
+		rel := models.NewBookItemRelationship()
+		if err := rel.UpdateByBookId(book.BookId, itemIdsInt); err != nil {
+			logs.Error("UpdateByBookId => ", err)
+			c.JsonResult(6005, err.Error())
+		}
+
 		c.JsonResult(0, "ok")
 	}
+
+	// 获取关联的所有项目空间ID
+	itemIds, _ := book.GetItemIds()
+
+	// 获取项目空间名称
+	itemNames := make(map[int]string)
+	if len(itemIds) > 0 {
+		rel := models.NewBookItemRelationship()
+		itemNames, _ = rel.GetItemNamesByBookId(book.BookId)
+	}
+
 	if book.PrivateToken != "" {
 		book.PrivateToken = conf.URLFor("DocumentController.Index", ":key", book.Identify, "token", book.PrivateToken)
 	}
 	bookResult := models.NewBookResult()
 	bookResult.ToBookResult(*book)
 
+	c.Data["ItemIds"] = itemIds
+	c.Data["ItemNames"] = itemNames
 	c.Data["Model"] = bookResult
 }
 
